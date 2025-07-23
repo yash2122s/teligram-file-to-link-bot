@@ -1,10 +1,23 @@
 import os
 import logging
 import base64
+import threading
+from flask import Flask
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 from dotenv import load_dotenv
 load_dotenv()
+
+# --- Flask web server for Render keep-alive ---
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is alive!"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
 
 # Get the token from environment variable
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
@@ -80,6 +93,11 @@ def main():
         print("!!! ERROR: TELEGRAM_BOT_TOKEN not found. !!!")
         return
     print("Bot is starting with deep link logic...")
+    # Start Flask in a separate thread for Render keep-alive
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+    # Start the Telegram bot as usual
     application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(MessageHandler(filters.PHOTO | filters.Document.ALL | filters.VIDEO, file_handler))
